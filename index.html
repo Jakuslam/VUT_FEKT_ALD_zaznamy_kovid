@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="cs" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BPC-ALD — Videocast přednášek a cvičení</title>
+  <style>
+    /* ── Reset & box model ───────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── CSS custom properties — light mode defaults ─────────── */
+    :root {
+      --bg: #f5f4f0;                /* page background */
+      --surface: #ffffff;           /* card / surface background */
+      --border: #d0cdc6;            /* default border colour */
+      --border-hover: #b0aca3;      /* border on hover */
+      --text-primary: #1a1a18;
+      --text-secondary: #4a4945;
+      --text-muted: #8a8984;
+      --blue-bg: #ddeefa;           /* lecture badge background */
+      --blue-text: #0c447c;         /* lecture badge text */
+      --green-bg: #dff0d0;          /* exercise badge background */
+      --green-text: #1e4208;        /* exercise badge text */
+      --accent: #185fa5;            /* link colour */
+      --btn-bg: #e8e6e1;            /* secondary button background */
+      --btn-bg-hover: #d8d5cf;
+      --btn-text: #2a2926;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+    }
+
+    /* ── Dark mode overrides — applied via data-theme="dark" ─── */
+    [data-theme="dark"] {
+      --bg: #1c1c1a;
+      --surface: #2e2e2b;
+      --border: #3a3936;
+      --border-hover: #525250;
+      --text-primary: #f0efe9;
+      --text-secondary: #b8b7b2;
+      --text-muted: #6b6a65;
+      --blue-bg: #0c3a6a;
+      --blue-text: #b5d4f4;
+      --green-bg: #1e4208;
+      --green-text: #c0dd97;
+      --accent: #5aa3e8;
+      --btn-bg: #3a3936;
+      --btn-bg-hover: #4a4945;
+      --btn-text: #f0efe9;
+    }
+
+    /* ── Base typography & page layout ──────────────────────── */
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text-primary);
+      line-height: 1.6;
+      min-height: 100vh;
+      transition: background 0.2s, color 0.2s; /* smooth theme switch */
+    }
+
+    /* Centred page container with responsive padding */
+    .container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+    /* ── Page header ─────────────────────────────────────────── */
+    header {
+      margin-bottom: 2rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border);
+      position: relative; /* anchor for the absolutely-positioned theme toggle */
+    }
+
+    header h1 { font-size: 22px; font-weight: 500; margin-bottom: 4px; }
+    header p { font-size: 14px; color: var(--text-secondary); }
+    header a { color: var(--accent); text-decoration: none; }
+    header a:hover { text-decoration: underline; }
+
+    /* ── Theme toggle button (top-right of header) ───────────── */
+    .theme-toggle {
+      position: absolute; top: 1rem; right: 1rem;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 50%; width: 40px; height: 40px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      font-size: 18px; transition: all 0.2s; color: var(--text-primary);
+    }
+    .theme-toggle:hover { background: var(--border-hover); transform: scale(1.05); }
+
+    /* ── Filter pill buttons ─────────────────────────────────── */
+    .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 2rem; }
+
+    .filter-btn {
+      font-size: 13px; padding: 5px 16px; border-radius: 20px;
+      border: 1px solid var(--border-hover);
+      background: var(--surface); color: var(--text-secondary);
+      cursor: pointer; transition: all 0.15s; font-family: inherit;
+    }
+    .filter-btn:hover { background: var(--bg); color: var(--text-primary); border-color: var(--text-muted); }
+    /* .active class is toggled by setFilter() */
+    .filter-btn.active { background: var(--surface); color: var(--text-primary); border-color: var(--border-hover); box-shadow: 0 0 0 1px var(--border-hover); }
+
+    /* ── Section heading above each card grid ────────────────── */
+    .season-label {
+      font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px;
+    }
+
+    /* ── Responsive card grid ────────────────────────────────── */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 12px; margin-bottom: 2.5rem;
+    }
+
+    /* ── Individual video card ───────────────────────────────── */
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 1rem 1.25rem;
+      display: flex; flex-direction: column; gap: 8px; transition: border-color 0.15s;
+    }
+    .card:hover { border-color: var(--border-hover); }
+
+    .card-top { display: flex; justify-content: space-between; align-items: center; }
+
+    /* Coloured pill: blue = lecture, green = exercise */
+    .badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; }
+    .badge-lecture  { background: var(--blue-bg);  color: var(--blue-text); }
+    .badge-exercise { background: var(--green-bg); color: var(--green-text); }
+
+    .ep-num    { font-size: 12px; color: var(--text-muted); }
+    .card-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+    .card-meta  { font-size: 12px; color: var(--text-secondary); }
+    .card-topics { font-size: 12px; color: var(--text-secondary); line-height: 1.5; flex: 1; }
+
+    /* "Play video" button inside each card */
+    .watch-btn {
+      display: block; margin-top: 4px; font-size: 13px;
+      color: var(--btn-text); background: var(--btn-bg);
+      border: 1px solid var(--border-hover); border-radius: var(--radius-md);
+      padding: 6px 12px; text-align: center;
+      transition: background 0.15s; font-family: inherit; cursor: pointer;
+    }
+    .watch-btn:hover { background: var(--btn-bg-hover); }
+
+    /* ══════════════════════════════════════════════════════════
+       Video modal — full-screen overlay with custom player UI
+       ══════════════════════════════════════════════════════════ */
+    .video-modal {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.92);
+      display: none; z-index: 1000;
+      align-items: center; justify-content: center;
+      padding: 10px;
+    }
+    /* .show is added/removed by playVideo() / closeVideo() */
+    .video-modal.show { display: flex; }
+
+    /* Wrapper that enforces 16:9 aspect ratio for the video */
+    .video-container {
+      position: relative;
+      width: 100%;
+      max-width: 100%;
+      max-height: calc(100% - 20px);
+      aspect-ratio: 16 / 9;
+      background: #000; border-radius: 6px; overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .video-player {
+      width: 100%; height: 100%; object-fit: contain;
+      display: block;
+      background: #000;
+    }
+
+    /* ── Player controls bar (fades in/out on mouse activity) ── */
+    .video-controls {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: linear-gradient(transparent, rgba(0,0,0,0.85));
+      padding: 20px 12px 12px;
+      opacity: 0; transition: opacity 0.3s; pointer-events: none;
+    }
+    .video-controls.show { opacity: 1; pointer-events: auto; }
+
+    .controls-row { display: flex; align-items: center; gap: 10px; }
+
+    /* Generic icon button used inside the controls bar */
+    .ctrl-btn {
+      background: none; border: none; color: #fff;
+      font-size: 16px; cursor: pointer; padding: 6px;
+      display: flex; align-items: center; justify-content: center;
+      transition: transform 0.15s;
+    }
+    .ctrl-btn:hover { transform: scale(1.1); }
+
+    /* ── Seek / progress bar ─────────────────────────────────── */
+    .progress-wrap {
+      flex: 1; height: 4px; background: rgba(255,255,255,0.3);
+      border-radius: 2px; cursor: pointer; position: relative;
+      transition: height 0.15s ease, background 0.15s ease;
+    }
+    .progress-wrap:hover {
+      height: 6px;
+      background: rgba(255,255,255,0.6);
+    }
+    /* Red fill that mirrors playback progress */
+    .progress-bar { height: 100%; background: #e00; border-radius: 2px; width: 0%; pointer-events: none; }
+
+    /* Thin white line that tracks the cursor position on the seek bar */
+    .hover-indicator {
+      position: absolute; top: 0; width: 1px; height: 100%;
+      background: rgba(255,255,255,0.95);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+    .hover-indicator.show { opacity: 1; }
+
+    /* ── Hover preview tooltip (shows a frame from the hovered time) ── */
+    .preview-tooltip {
+      position: absolute; top: -140px; left: 0;
+      transform: translateX(-50%);
+      width: auto; min-width: 170px;
+      padding: 8px;
+      background: rgba(20,20,20,0.95);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 8px;
+      box-shadow: 0 12px 28px rgba(0,0,0,0.4);
+      color: #fff;
+      text-align: center;
+      pointer-events: none;
+      opacity: 0; visibility: hidden;
+      transition: opacity 0.15s ease, visibility 0.15s ease;
+      z-index: 5;
+      box-sizing: border-box;
+    }
+    .preview-tooltip.show { opacity: 1; visibility: visible; }
+    /* Hidden <video> element used to render the preview thumbnail */
+    .preview-tooltip video {
+      width: 100%; max-width: 160px; height: 90px; border-radius: 6px;
+      background: #000; display: block; object-fit: cover;
+      margin: 0 auto;
+    }
+    .preview-tooltip .preview-time {
+      margin-top: 6px; font-size: 12px; color: #fff;
+    }
+
+    /* Current time / total duration readout */
+    .time-display { color: #fff; font-size: 13px; font-family: monospace; white-space: nowrap; }
+
+    /* Volume icon + range slider — slider slides out on hover */
+    .volume-wrap { display: flex; align-items: center; gap: 6px; }
+    .volume-slider { width: 0; opacity: 0; transition: all 0.2s; cursor: pointer; accent-color: #fff; }
+    .volume-wrap:hover .volume-slider { width: 60px; opacity: 1; }
+
+    /* Playback speed selector */
+    .speed-sel {
+      background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.3);
+      color: #fff; font-size: 12px; padding: 3px 6px; border-radius: 4px; cursor: pointer;
+    }
+
+    /* ✕ close button — hidden with .hide when controls auto-hide */
+    .close-modal {
+      position: absolute; top: 12px; right: 12px;
+      background: rgba(0,0,0,0.6); border: 2px solid rgba(255,255,255,0.5);
+      color: #fff; font-size: 20px; cursor: pointer;
+      width: 38px; height: 38px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1001; transition: all 0.2s;
+    }
+    .close-modal:hover { background: rgba(255,255,255,0.15); border-color: #fff; }
+    .close-modal.hide { opacity: 0; pointer-events: none; }
+
+    /* ── Page footer ─────────────────────────────────────────── */
+    footer {
+      margin-top: 3rem; padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      font-size: 13px; color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- ── Page header ── -->
+  <header>
+    <h1>Algoritmy a datové struktury — BPC-ALD</h1>
+    <p>Videocast přednášek a cvičení · Ing. Petr Petyovský, Ph.D. · <a href="https://www.vut.cz/studenti/predmety/detail/242222" target="_blank">VUT v Brně</a></p>
+    <!-- Theme toggle; JS reads/writes data-theme on <html> -->
+    <button class="theme-toggle" id="themeToggle" title="Přepnout tmavý/světlý režim">
+      <span id="themeIcon">🌙</span>
+    </button>
+  </header>
+
+  <!-- ── Filter bar — each button calls setFilter(key, btn) ── -->
+  <div class="filters">
+    <button class="filter-btn active" onclick="setFilter('vse',this)">Vše</button>
+    <button class="filter-btn" onclick="setFilter('2021',this)">Semestr 2021</button>
+    <button class="filter-btn" onclick="setFilter('2022',this)">Semestr 2022</button>
+    <button class="filter-btn" onclick="setFilter('prednaska',this)">Jen přednášky</button>
+    <button class="filter-btn" onclick="setFilter('cviceni',this)">Jen cvičení</button>
+  </div>
+
+  <!-- ── Dynamic card grid injected by vykreslit() ── -->
+  <div id="obsah"></div>
+
+  <!--<footer>&copy; 2026 Ústav automatizace a měřicí techniky, FEKT, Vysoké učení technické v Brně</footer>-->
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     Video modal — rendered over the page when a card is clicked
+     ══════════════════════════════════════════════════════════════ -->
+<div class="video-modal" id="videoModal">
+  <div class="video-container" id="videoContainer">
+
+    <!-- Close button (top-right) -->
+    <button class="close-modal" id="closeModal">&times;</button>
+
+    <!-- Main video element; src is set dynamically by playVideo() -->
+    <video class="video-player" id="videoPlayer" preload="metadata"></video>
+
+    <!-- Controls overlay — fades in on mouse movement -->
+    <div class="video-controls" id="videoControls">
+      <div class="controls-row">
+
+        <!-- Play / Pause toggle -->
+        <button class="ctrl-btn" id="playBtn">&#9654;</button>
+
+        <!-- Seek bar with hover preview tooltip -->
+        <div class="progress-wrap" id="progressWrap">
+          <!-- Thin line that follows the cursor -->
+          <div class="hover-indicator" id="hoverIndicator"></div>
+          <!-- Red fill showing elapsed playback time -->
+          <div class="progress-bar" id="progressBar"></div>
+          <!-- Tooltip that appears above the cursor on hover -->
+          <div class="preview-tooltip" id="previewTooltip">
+            <!-- Hidden video used to seek and display preview frames -->
+            <video id="previewPlayer" muted preload="metadata" playsinline></video>
+            <div class="preview-time" id="previewTime">0:00</div>
+          </div>
+        </div>
+
+        <!-- Elapsed / total time readout -->
+        <div class="time-display" id="timeDisplay">0:00 / 0:00</div>
+
+        <!-- Volume button + slide-out range slider -->
+        <div class="volume-wrap">
+          <button class="ctrl-btn" id="volumeBtn">&#128266;</button>
+          <input type="range" class="volume-slider" id="volumeSlider" min="0" max="1" step="0.05" value="1">
+        </div>
+
+        <!-- Playback rate selector -->
+        <select class="speed-sel" id="speedSel">
+          <option value="2">2×</option>
+          <option value="1.75">1.75×</option>
+          <option value="1.5">1.5×</option>
+          <option value="1.25">1.25×</option>
+          <option value="1" selected>1×</option>
+          <option value="0.75">0.75×</option>
+          <option value="0.5">0.5×</option>
+          <option value="0.25">0.25×</option>
+        </select>
+
+        <!-- Fullscreen toggle -->
+        <button class="ctrl-btn" id="fullscreenBtn">&#9974;</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════════════
+   DATA LAYER
+   Each object represents one recorded video. Fields:
+     sezona  — academic year (2021 or 2022)
+     ep      — episode number within that semester
+     typ     — 'prednaska' (lecture) or 'cviceni' (exercise session)
+     nazev   — display title shown on the card
+     delka   — formatted duration string (h:mm:ss)
+     url     — direct URL to the MP4 file
+     temata  — comma-separated list of topics covered
+   ════════════════════════════════════════════════════════════════ */
+const videa = [
+  { sezona:2021, ep:1,  typ:'prednaska', nazev:'Přednáška #1',  delka:'1:35:54', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-ald/videos/2021/bpc-ald_2021_prednaska_01_videocast_h264.mp4', temata:'Algoritmus, časová a paměťová složitost, TVector, dynamická alokace paměti' },
+  { sezona:2021, ep:2,  typ:'cviceni',   nazev:'Cvičení #1',    delka:'2:47:05', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-ald/videos/2021/bpc-ald_2021_cviceni_01_videocast_h264.mp4', temata:'ADT TVector, složitost algoritmů' },
+  { sezona:2021, ep:3,  typ:'prednaska', nazev:'Přednáška #2',  delka:'1:52:04', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-ald/videos/2021/bpc-ald_2021_prednaska_02_videocast_h264.mp4', temata:'Datové struktury, zásobník, amortizace složitosti, iterátor' },
+  { sezona:2021, ep:4,  typ:'cviceni',   nazev:'Cvičení #2',    delka:'1:39:12', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-ald/videos/2021/bpc-ald_2021_cviceni_02_videocast_h264.mp4', temata:'ADT TStack, TStackIterator' },
+  { sezona:2021, ep:5,  typ:'prednaska', nazev:'Přednáška #3',  delka:'1:50:00', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-ald/videos/2021/bpc-ald_2021_prednaska_03_videocast_h264.mp4', temata:'ADT fronta, oboustranná a prioritní fronta, kruhové pole' },
+  { sezona:2021, ep:6,  typ:'cviceni',   nazev:'Cvičení #3',    delka:'1:21:10', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-ald/videos/2021/bpc-ald_2021_cviceni_03_videocast_h264.mp4', temata:'ADT TQueue_list' },
+  { sezona:2021, ep:7,  typ:'prednaska', nazev:'Přednáška #4',  delka:'1:54:31', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-ald/videos/2021/bpc-ald_2021_prednaska_04_videocast_h264.mp4', temata:'Prioritní fronta, halda, graf, strom, stabilní/nestabilní fronta' },
+  { sezona:2021, ep:8,  typ:'cviceni',   nazev:'Cvičení #4',    delka:'1:48:44', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-ald/videos/2021/bpc-ald_2021_cviceni_04_videocast_h264.mp4', temata:'ADT TQueue_array (kruhové pole)' },
+  { sezona:2021, ep:9,  typ:'prednaska', nazev:'Přednáška #5',  delka:'1:46:51', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-ald/videos/2021/bpc-ald_2021_prednaska_05_videocast_h264.mp4', temata:'ADT Množina, vyčíslení výrazů zásobníkem, Insert Sort' },
+  { sezona:2021, ep:10, typ:'cviceni',   nazev:'Cvičení #5',    delka:'0:03:37', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-ald/videos/2021/bpc-ald_2021_cviceni_05_videocast_h264.mp4', temata:'Test #1' },
+  { sezona:2021, ep:11, typ:'prednaska', nazev:'Přednáška #6',  delka:'2:00:21', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-ald/videos/2021/bpc-ald_2021_prednaska_06_videocast_h264.mp4', temata:'Bubble Sort, Select Sort, přímé třídicí metody, Sortable TVector' },
+  { sezona:2021, ep:12, typ:'cviceni',   nazev:'Cvičení #6',    delka:'2:40:25', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-ald/videos/2021/bpc-ald_2021_cviceni_06_videocast_h264.mp4', temata:'Insert Sort, Select Sort, Bubble Sort' },
+  { sezona:2021, ep:13, typ:'prednaska', nazev:'Přednáška #7',  delka:'1:53:37', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-ald/videos/2021/bpc-ald_2021_prednaska_07_videocast_h264.mp4', temata:'Rekurze, iterace, Fibonacci, Wildcard matching' },
+  { sezona:2021, ep:14, typ:'cviceni',   nazev:'Cvičení #7',    delka:'2:29:43', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-ald/videos/2021/bpc-ald_2021_cviceni_07_videocast_h264.mp4', temata:'Bubble Sort s optimalizacemi, Shaker Sort' },
+  { sezona:2021, ep:15, typ:'prednaska', nazev:'Přednáška #8',  delka:'2:06:42', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-ald/videos/2021/bpc-ald_2021_prednaska_08_videocast_h264.mp4', temata:'Shell Sort, Quick Sort, odvození složitosti' },
+  { sezona:2021, ep:16, typ:'cviceni',   nazev:'Cvičení #8',    delka:'2:48:39', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-ald/videos/2021/bpc-ald_2021_cviceni_08_videocast_h264.mp4', temata:'Fibonacci, Wildcard match — rekurzivní implementace' },
+  { sezona:2021, ep:17, typ:'prednaska', nazev:'Přednáška #9',  delka:'1:55:03', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-ald/videos/2021/bpc-ald_2021_prednaska_09_videocast_h264.mp4', temata:'Heap Sort, Merge Sort, shrnutí účinnějších metod třídění' },
+  { sezona:2021, ep:18, typ:'cviceni',   nazev:'Cvičení #9',    delka:'2:45:19', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-ald/videos/2021/bpc-ald_2021_cviceni_09_videocast_h264.mp4', temata:'Shell Sort (Hibbard), Quick Sort, TSpan, klíčové slovo restrict' },
+  { sezona:2021, ep:19, typ:'prednaska', nazev:'Přednáška #10', delka:'1:54:11', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-ald/videos/2021/bpc-ald_2021_prednaska_10_videocast_h264.mp4', temata:'Binární vyhledávání, binární vyhledávací stromy, AVL stromy' },
+  { sezona:2021, ep:20, typ:'cviceni',   nazev:'Cvičení #10',   delka:'1:52:14', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-ald/videos/2021/bpc-ald_2021_cviceni_10_videocast_h264.mp4', temata:'Heap Sort (THeap), Merge Sort (TVector, TSpan)' },
+  { sezona:2021, ep:21, typ:'prednaska', nazev:'Přednáška #11', delka:'1:56:29', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-ald/videos/2021/bpc-ald_2021_prednaska_11_videocast_h264.mp4', temata:'SkipList, hašování, hašovací funkce, řešení kolizí' },
+  { sezona:2021, ep:22, typ:'cviceni',   nazev:'Cvičení #11',   delka:'2:38:28', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-ald/videos/2021/bpc-ald_2021_cviceni_11_videocast_h264.mp4', temata:'ADT TSet — nesetříděná a setříděná množina, lineární a binární vyhledávání' },
+  { sezona:2021, ep:23, typ:'prednaska', nazev:'Přednáška #12', delka:'1:51:08', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-ald/videos/2021/bpc-ald_2021_prednaska_12_videocast_h264.mp4', temata:'Shrnutí kurzu, termíny zkoušek, kahoot test' },
+  { sezona:2021, ep:24, typ:'cviceni',   nazev:'Cvičení #12',   delka:'0:08:14', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-ald/videos/2021/bpc-ald_2021_cviceni_12_videocast_h264.mp4', temata:'Test #2' },
+  { sezona:2022, ep:1,  typ:'prednaska', nazev:'Přednáška #1',  delka:'1:41:00', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-ald/videos/2022/bpc-ald_2022_prednaska_01_videocast_h264.mp4', temata:'Algoritmus, složitost, signatura datového typu, TVector, dynamická alokace' },
+  { sezona:2022, ep:2,  typ:'prednaska', nazev:'Přednáška #2',  delka:'1:41:33', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-ald/videos/2022/bpc-ald_2022_prednaska_02_videocast_h264.mp4', temata:'Asymptotická složitost, zásobník, jednosměrně vázaný seznam, iterátor' },
+  { sezona:2022, ep:3,  typ:'prednaska', nazev:'Přednáška #3',  delka:'1:39:44', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-ald/videos/2022/bpc-ald_2022_prednaska_03_videocast_h264.mp4', temata:'ADT fronta, kruhové pole, oboustranná a prioritní fronta' },
+  { sezona:2022, ep:4,  typ:'prednaska', nazev:'Přednáška #4',  delka:'1:43:10', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-ald/videos/2022/bpc-ald_2022_prednaska_04_videocast_h264.mp4', temata:'Prioritní fronta, halda, vyvážený binární strom, iterátor stromu' },
+  { sezona:2022, ep:5,  typ:'prednaska', nazev:'Přednáška #5',  delka:'1:28:11', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-ald/videos/2022/bpc-ald_2022_prednaska_05_videocast_h264.mp4', temata:'ADT Množina, varianty zápisu výrazů, Insert Sort' },
+  { sezona:2022, ep:6,  typ:'prednaska', nazev:'Přednáška #6',  delka:'1:34:46', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-ald/videos/2022/bpc-ald_2022_prednaska_06_videocast_h264.mp4', temata:'Bubble Sort, Select Sort, přirozené algoritmy třídění, Sortable TVector' },
+  { sezona:2022, ep:7,  typ:'prednaska', nazev:'Přednáška #7',  delka:'1:26:35', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-ald/videos/2022/bpc-ald_2022_prednaska_07_videocast_h264.mp4', temata:'Iterace vs. rekurze, přímá/nepřímá/koncová rekurze, Fibonacci, Wildcard matching' },
+  { sezona:2022, ep:8,  typ:'prednaska', nazev:'Přednáška #8',  delka:'1:44:03', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-ald/videos/2022/bpc-ald_2022_prednaska_08_videocast_h264.mp4', temata:'Shell Sort, Quick Sort, odvození složitosti' },
+  { sezona:2022, ep:9,  typ:'prednaska', nazev:'Přednáška #9',  delka:'1:36:33', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-ald/videos/2022/bpc-ald_2022_prednaska_09_videocast_h264.mp4', temata:'Heap Sort, Merge Sort, shrnutí účinnějších metod třídění' },
+  { sezona:2022, ep:10, typ:'prednaska', nazev:'Přednáška #10', delka:'1:31:59', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-ald/videos/2022/bpc-ald_2022_prednaska_10_videocast_h264.mp4', temata:'Binární vyhledávání, BST, AVL strom — vyvažování po vložení' },
+  { sezona:2022, ep:11, typ:'prednaska', nazev:'Přednáška #11', delka:'1:44:29', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-ald/videos/2022/bpc-ald_2022_prednaska_11_videocast_h264.mp4', temata:'AVL strom — odebrání uzlu, B-strom, zhodnocení algoritmů vyhledávání' },
+  { sezona:2022, ep:12, typ:'prednaska', nazev:'Přednáška #12', delka:'1:32:32', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-ald/videos/2022/bpc-ald_2022_prednaska_12_videocast_h264.mp4', temata:'SkipList, hašování, hašovací funkce, metody řešení kolizí' },
+  { sezona:2022, ep:13, typ:'prednaska', nazev:'Přednáška #13', delka:'0:52:22', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-ald/videos/2022/bpc-ald_2022_prednaska_13_videocast_h264.mp4', temata:'Shrnutí kurzu, termíny zkoušek, kahoot test' },
+];
+
+/* ════════════════════════════════════════════════════════════════
+   FILTER & RENDER
+   ════════════════════════════════════════════════════════════════ */
+
+/** Currently active filter key — one of: 'vse', '2021', '2022', 'prednaska', 'cviceni' */
+let aktivniFiltr = 'vse';
+
+/**
+ * Called by each filter button's onclick attribute.
+ * Updates the active filter, highlights the clicked button, and re-renders.
+ * @param {string} typ  - Filter key (see aktivniFiltr above)
+ * @param {HTMLElement} btn - The button element that was clicked
+ */
+function setFilter(typ, btn) {
+  aktivniFiltr = typ;
+  /* Remove .active from all filter buttons, then re-add to the clicked one */
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  vykreslit();
+}
+
+/**
+ * Renders the card grid into #obsah based on the current filter.
+ * Groups items into up to three labelled sections:
+ *   1. Lectures 2021
+ *   2. Exercises 2021
+ *   3. Lectures 2022
+ * (There are no exercise recordings for 2022.)
+ */
+function vykreslit() {
+  /* Apply the active filter to the full data array */
+  let f = videa;
+  if (aktivniFiltr==='2021')      f = videa.filter(v => v.sezona===2021);
+  else if (aktivniFiltr==='2022') f = videa.filter(v => v.sezona===2022);
+  else if (aktivniFiltr==='prednaska') f = videa.filter(v => v.typ==='prednaska');
+  else if (aktivniFiltr==='cviceni')   f = videa.filter(v => v.typ==='cviceni');
+
+  const obsah = document.getElementById('obsah');
+  obsah.innerHTML = '';
+  if (!f.length) {
+    obsah.innerHTML = '<p style="color:var(--text-muted);font-size:14px;">Žádná videa k zobrazení.</p>';
+    return;
+  }
+
+  /* Each entry defines one labelled section of the grid */
+  [
+    { label:'Přednášky 2021', fn: v => v.sezona===2021 && v.typ==='prednaska' },
+    { label:'Cvičení 2021',   fn: v => v.sezona===2021 && v.typ==='cviceni' },
+    { label:'Přednášky 2022', fn: v => v.sezona===2022 && v.typ==='prednaska' },
+  ].forEach(s => {
+    /* Filter the already-filtered array for this section */
+    const seznam = f.filter(s.fn);
+    if (!seznam.length) return; /* skip empty sections */
+
+    /* Section heading */
+    const lbl = document.createElement('div');
+    lbl.className = 'season-label';
+    lbl.textContent = s.label;
+    obsah.appendChild(lbl);
+
+    /* Responsive card grid */
+    const grid = document.createElement('div');
+    grid.className = 'grid';
+
+    seznam.forEach(v => {
+      /* Build one card per video via innerHTML */
+      const karta = document.createElement('div');
+      karta.className = 'card';
+      karta.innerHTML = `
+        <div class="card-top">
+          <span class="badge ${v.typ==='prednaska'?'badge-lecture':'badge-exercise'}">${v.typ==='prednaska'?'Přednáška':'Cvičení'}</span>
+          <span class="ep-num">${v.sezona}</span>
+        </div>
+        <div class="card-title">${v.nazev}</div>
+        <div class="card-meta">⏱ ${v.delka}</div>
+        <div class="card-topics">${v.temata}</div>
+        <!-- data-url / data-title are read in the click listener below -->
+        <button class="watch-btn" data-url="${v.url}" data-title="${v.nazev}">Přehrát video</button>
+      `;
+      grid.appendChild(karta);
+    });
+    obsah.appendChild(grid);
+  });
+
+  /* Attach click listeners to all freshly rendered "Play" buttons */
+  document.querySelectorAll('.watch-btn').forEach(btn => {
+    btn.addEventListener('click', () => playVideo(btn.dataset.url, btn.dataset.title));
+  });
+}
+
+/* Initial render on page load */
+vykreslit();
+
+
+/* ════════════════════════════════════════════════════════════════
+   VIDEO PLAYER
+   DOM element references cached once for performance
+   ════════════════════════════════════════════════════════════════ */
+const modal          = document.getElementById('videoModal');
+const player         = document.getElementById('videoPlayer');
+const playBtn        = document.getElementById('playBtn');
+const progWrap       = document.getElementById('progressWrap');
+const progBar        = document.getElementById('progressBar');
+const hoverIndicator = document.getElementById('hoverIndicator');
+const previewTooltip = document.getElementById('previewTooltip');
+const previewPlayer  = document.getElementById('previewPlayer');
+const previewTime    = document.getElementById('previewTime');
+const timeDisp       = document.getElementById('timeDisplay');
+const volBtn         = document.getElementById('volumeBtn');
+const volSlider      = document.getElementById('volumeSlider');
+const speedSel       = document.getElementById('speedSel');
+const fsBtn          = document.getElementById('fullscreenBtn');
+const closeBtn       = document.getElementById('closeModal');
+const controls       = document.getElementById('videoControls');
+
+/**
+ * Opens the modal and starts playing a video.
+ * @param {string} url   - Direct URL of the MP4 file
+ * @param {string} title - Human-readable title (used in document.title)
+ */
+function playVideo(url, title) {
+  player.src = url;
+  player.load();
+  modal.classList.add('show');
+  document.title = title + ' — BPC-ALD';
+  /* Reset speed to normal on each new video */
+  speedSel.value = '1';
+  player.playbackRate = 1;
+  player.play();
+}
+
+/** Pauses playback, clears the src, hides the modal, exits fullscreen, and restores the page title. */
+function closeVideo() {
+  player.pause();
+  player.src = '';
+  modal.classList.remove('show');
+  /* Exit fullscreen if the browser is currently in fullscreen mode */
+  if (document.fullscreenElement) document.exitFullscreen();
+  document.title = 'BPC-ALD — Videocast přednášek a cvičení';
+}
+
+/** Toggles between play and pause, updating the button icon accordingly. */
+function togglePlay() {
+  if (player.paused) { player.play(); playBtn.innerHTML = '&#10074;&#10074;'; }
+  else { player.pause(); playBtn.innerHTML = '&#9654;'; }
+}
+
+/**
+ * Formats a number of seconds into m:ss (or h:mm:ss for durations ≥ 1 h).
+ * Returns '0:00' for NaN values (e.g. before metadata loads).
+ * @param {number} s - Seconds
+ * @returns {string}
+ */
+function fmt(s) {
+  if (isNaN(s)) return '0:00';
+  const m = Math.floor(s/60), sec = Math.floor(s%60);
+  return m + ':' + (sec<10?'0':'') + sec;
+}
+
+
+/* ── Seek-bar hover preview ────────────────────────────────────
+   A hidden <video> element (previewPlayer) is seeked to the time
+   corresponding to the cursor position so the user can preview
+   frames before clicking.  Because seeks are async, a queuing
+   mechanism avoids overlapping seek operations.
+   ─────────────────────────────────────────────────────────────── */
+
+/** True while previewPlayer has an in-flight seek. */
+let previewSeeking = false;
+/** Stores the most recently requested time when a seek is already in progress. */
+let previewPendingTime = null;
+
+/**
+ * Seeks previewPlayer to `time`, handling the case where metadata
+ * is not yet loaded and deferring if a seek is already in progress.
+ * @param {number} time - Target time in seconds
+ */
+function seekPreview(time) {
+  /* Lazily assign the same src as the main player */
+  if (!previewPlayer.src || previewPlayer.src !== player.src) {
+    previewPlayer.src = player.src;
+    previewPlayer.load();
+  }
+  /* Defer until metadata is available */
+  if (isNaN(previewPlayer.duration) || previewPlayer.readyState < 1) {
+    previewPlayer.addEventListener('loadedmetadata', () => {
+      previewPlayer.currentTime = time;
+    }, { once: true });
+    return;
+  }
+  /* Queue the request if a seek is already in flight */
+  if (previewSeeking) {
+    previewPendingTime = time;
+    return;
+  }
+  previewSeeking = true;
+  previewPlayer.currentTime = time;
+}
+
+/* After a seek completes, process any queued request */
+previewPlayer.addEventListener('seeked', () => {
+  previewSeeking = false;
+  if (previewPendingTime !== null) {
+    const nextTime = previewPendingTime;
+    previewPendingTime = null;
+    seekPreview(nextTime);
+  }
+});
+
+/**
+ * Positions the hover indicator and preview tooltip above the cursor
+ * and triggers a preview seek.
+ * @param {MouseEvent} event
+ */
+function updatePreviewTooltip(event) {
+  const rect = progWrap.getBoundingClientRect();
+  /* Clamp x within the seek bar bounds */
+  const x = Math.max(0, Math.min(event.clientX - rect.left, rect.width));
+  const pct = rect.width ? x / rect.width : 0;
+  const time = player.duration ? player.duration * pct : 0;
+
+  /* Update tooltip text and position */
+  previewTime.textContent = fmt(time);
+  previewTooltip.style.left = `${x}px`;
+  previewTooltip.classList.add('show');
+
+  /* Show the thin vertical cursor line on the seek bar */
+  hoverIndicator.style.left = `${x}px`;
+  hoverIndicator.classList.add('show');
+
+  seekPreview(time);
+}
+
+/* Show tooltip and indicator when hovering over the seek bar */
+progWrap.addEventListener('mousemove', updatePreviewTooltip);
+/* Hide them when the cursor leaves */
+progWrap.addEventListener('mouseleave', () => {
+  previewTooltip.classList.remove('show');
+  hoverIndicator.classList.remove('show');
+});
+
+
+/* ── Main player event listeners ──────────────────────────────── */
+
+/* Keep the progress bar and time display in sync with playback */
+player.addEventListener('timeupdate', () => {
+  const pct = player.duration ? (player.currentTime / player.duration) * 100 : 0;
+  progBar.style.width = pct + '%';
+  timeDisp.textContent = fmt(player.currentTime) + ' / ' + fmt(player.duration);
+});
+player.addEventListener('play',  () => { playBtn.innerHTML = '&#10074;&#10074;'; });
+player.addEventListener('pause', () => { playBtn.innerHTML = '&#9654;'; modal.style.cursor = ''; clearTimeout(hideTimer); });
+/* When playback ends, show the controls permanently so the user can close/replay */
+player.addEventListener('ended', () => { playBtn.innerHTML = '&#9654;'; controls.classList.add('show'); closeBtn.classList.remove('hide'); });
+
+/* Seek on click: map click x-position to a playback time */
+progWrap.addEventListener('click', e => {
+  const r = progWrap.getBoundingClientRect();
+  player.currentTime = ((e.clientX - r.left) / r.width) * player.duration;
+});
+
+/* Volume button — toggles mute; updates icon and range slider */
+volBtn.addEventListener('click', () => {
+  player.muted = !player.muted;
+  volBtn.innerHTML = player.muted ? '&#128263;' : '&#128266;';
+  volSlider.value = player.muted ? 0 : player.volume;
+});
+/* Volume slider — adjusts volume and auto-mutes at 0 */
+volSlider.addEventListener('input', () => {
+  player.volume = volSlider.value;
+  player.muted = volSlider.value == 0;
+  volBtn.innerHTML = player.muted ? '&#128263;' : '&#128266;';
+});
+
+/* Playback speed — driven by the <select> value */
+speedSel.addEventListener('change', () => { player.playbackRate = parseFloat(speedSel.value); });
+
+/* Fullscreen toggle — requests fullscreen on the modal overlay */
+fsBtn.addEventListener('click', () => {
+  if (!document.fullscreenElement) modal.requestFullscreen();
+  else document.exitFullscreen();
+});
+
+/* Play/pause button and click on the video itself both call togglePlay */
+playBtn.addEventListener('click', togglePlay);
+player.addEventListener('click', togglePlay);
+
+/* Close button and clicking outside the video container both close the modal */
+closeBtn.addEventListener('click', closeVideo);
+modal.addEventListener('click', e => { if (e.target === modal) closeVideo(); });
+
+/* Keyboard shortcuts (only active while the modal is open) */
+document.addEventListener('keydown', e => {
+  if (!modal.classList.contains('show')) return;
+  if (e.key === 'Escape')                        closeVideo();
+  if (e.key === ' ')                             { e.preventDefault(); togglePlay(); }
+  if (e.key === 'f')                             { e.preventDefault(); fsBtn.click(); }
+  /* Left arrow or A — rewind 5 s */
+  if (e.key === 'ArrowLeft'  || e.key.toLowerCase() === 'a') {
+    e.preventDefault();
+    player.currentTime = Math.max(0, player.currentTime - 5);
+  }
+  /* Right arrow or D — fast-forward 5 s */
+  if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') {
+    e.preventDefault();
+    player.currentTime = Math.min(player.duration, player.currentTime + 5);
+  }
+});
+
+
+/* ── Auto-hide controls ────────────────────────────────────────
+   Controls and the close button fade out after 5 s of inactivity
+   while the video is playing.  Mouse movement resets the timer.
+   ─────────────────────────────────────────────────────────────── */
+let hideTimer;
+
+function showControls() {
+  controls.classList.add('show');
+  closeBtn.classList.remove('hide');
+  /* Restore the cursor whenever controls become visible */
+  modal.style.cursor = '';
+  clearTimeout(hideTimer);
+  /* Only schedule auto-hide when the video is actually playing */
+  if (!player.paused) {
+    hideTimer = setTimeout(() => {
+      controls.classList.remove('show');
+      closeBtn.classList.add('hide');
+      /* Hide the cursor together with the controls */
+      modal.style.cursor = 'none';
+    }, 5000);
+  }
+}
+
+modal.addEventListener('mousemove', showControls);
+modal.addEventListener('mouseleave', () => {
+  /* Restore cursor when the mouse leaves the modal, then use a shorter delay */
+  modal.style.cursor = '';
+  if (!player.paused) hideTimer = setTimeout(() => {
+    controls.classList.remove('show');
+    closeBtn.classList.add('hide');
+    modal.style.cursor = 'none';
+  }, 800);
+});
+
+
+/* ════════════════════════════════════════════════════════════════
+   THEME SYSTEM
+   Persists the chosen theme in localStorage and falls back to the
+   OS-level prefers-color-scheme preference.
+   ════════════════════════════════════════════════════════════════ */
+
+/**
+ * Applies the given theme by setting data-theme on <html>
+ * and updating the toggle button icon.
+ * @param {'light'|'dark'} t
+ */
+function applyTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  document.getElementById('themeIcon').textContent = t==='dark' ? '☀️' : '🌙';
+}
+
+/** Flips the theme and saves the preference. */
+function toggleTheme() {
+  const next = document.documentElement.getAttribute('data-theme')==='dark' ? 'light' : 'dark';
+  applyTheme(next);
+  try { localStorage.setItem('theme', next); } catch(e) {} /* silently ignore private-browsing restrictions */
+}
+
+document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+
+/* IIFE — runs once on load to restore the saved or system preference */
+(function(){
+  let saved;
+  try { saved = localStorage.getItem('theme'); } catch(e) {}
+
+  let theme;
+  if (saved === 'dark' || saved === 'light') {
+    theme = saved; /* honour an explicit user choice */
+  } else {
+    /* Default to the OS preference */
+    theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  applyTheme(theme);
+})();
+</script>
+</body>
+</html>
+<!--Autor webové stránky: Jakub Sláma-->
