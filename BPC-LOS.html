@@ -1,0 +1,645 @@
+
+<!DOCTYPE html>
+<html lang="cs" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BPC-LOS — Videocast přednášek a cvičení</title>
+  <style>
+    /* ── Reset & box model ───────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── CSS custom properties — light mode defaults ─────────── */
+    :root {
+      --bg: #f5f4f0;                /* page background */
+      --surface: #ffffff;           /* card / surface background */
+      --border: #d0cdc6;            /* default border colour */
+      --border-hover: #b0aca3;      /* border on hover */
+      --text-primary: #1a1a18;
+      --text-secondary: #4a4945;
+      --text-muted: #8a8984;
+      --blue-bg: #ddeefa;           /* lecture badge background */
+      --blue-text: #0c447c;         /* lecture badge text */
+      --green-bg: #dff0d0;          /* exercise badge background */
+      --green-text: #1e4208;        /* exercise badge text */
+      --accent: #185fa5;            /* link colour */
+      --btn-bg: #e8e6e1;            /* secondary button background */
+      --btn-bg-hover: #d8d5cf;
+      --btn-text: #2a2926;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+    }
+
+    /* ── Dark mode overrides — applied via data-theme="dark" ─── */
+    [data-theme="dark"] {
+      --bg: #1c1c1a;
+      --surface: #2e2e2b;
+      --border: #3a3936;
+      --border-hover: #525250;
+      --text-primary: #f0efe9;
+      --text-secondary: #b8b7b2;
+      --text-muted: #6b6a65;
+      --blue-bg: #0c3a6a;
+      --blue-text: #b5d4f4;
+      --green-bg: #1e4208;
+      --green-text: #c0dd97;
+      --accent: #5aa3e8;
+      --btn-bg: #3a3936;
+      --btn-bg-hover: #4a4945;
+      --btn-text: #f0efe9;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text-primary);
+      line-height: 1.6;
+      min-height: 100vh;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+    header {
+      margin-bottom: 2rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border);
+      position: relative;
+    }
+
+    header h1 { font-size: 22px; font-weight: 500; margin-bottom: 4px; }
+    header p { font-size: 14px; color: var(--text-secondary); }
+    header a { color: var(--accent); text-decoration: none; }
+    header a:hover { text-decoration: underline; }
+
+    .theme-toggle {
+      position: absolute; top: 1rem; right: 1rem;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 50%; width: 40px; height: 40px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      font-size: 18px; transition: all 0.2s; color: var(--text-primary);
+    }
+    .theme-toggle:hover { background: var(--border-hover); transform: scale(1.05); }
+
+    .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 2rem; }
+
+    .filter-btn {
+      font-size: 13px; padding: 5px 16px; border-radius: 20px;
+      border: 1px solid var(--border-hover);
+      background: var(--surface); color: var(--text-secondary);
+      cursor: pointer; transition: all 0.15s; font-family: inherit;
+    }
+    .filter-btn:hover { background: var(--bg); color: var(--text-primary); border-color: var(--text-muted); }
+    .filter-btn.active { background: var(--surface); color: var(--text-primary); border-color: var(--border-hover); box-shadow: 0 0 0 1px var(--border-hover); }
+
+    .season-label {
+      font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 12px; margin-bottom: 2.5rem;
+    }
+
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 1rem 1.25rem;
+      display: flex; flex-direction: column; gap: 8px; transition: border-color 0.15s;
+    }
+    .card:hover { border-color: var(--border-hover); }
+
+    .card-top { display: flex; justify-content: space-between; align-items: center; }
+
+    .badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; }
+    .badge-lecture  { background: var(--blue-bg);  color: var(--blue-text); }
+    .badge-exercise { background: var(--green-bg); color: var(--green-text); }
+
+    .ep-num    { font-size: 12px; color: var(--text-muted); }
+    .card-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+    .card-meta  { font-size: 12px; color: var(--text-secondary); }
+    .card-topics { font-size: 12px; color: var(--text-secondary); line-height: 1.5; flex: 1; }
+
+    .watch-btn {
+      display: block; margin-top: 4px; font-size: 13px;
+      color: var(--btn-text); background: var(--btn-bg);
+      border: 1px solid var(--border-hover); border-radius: var(--radius-md);
+      padding: 6px 12px; text-align: center;
+      transition: background 0.15s; font-family: inherit; cursor: pointer;
+    }
+    .watch-btn:hover { background: var(--btn-bg-hover); }
+
+    /* ── Video modal ── */
+    .video-modal {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.92);
+      display: none; z-index: 1000;
+      align-items: center; justify-content: center;
+      padding: 10px;
+    }
+    .video-modal.show { display: flex; }
+
+    .video-container {
+      position: relative;
+      width: 100%;
+      max-width: 100%;
+      max-height: calc(100% - 20px);
+      aspect-ratio: 16 / 9;
+      background: #000; border-radius: 6px; overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .video-player {
+      width: 100%; height: 100%; object-fit: contain;
+      display: block;
+      background: #000;
+    }
+
+    .video-controls {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: linear-gradient(transparent, rgba(0,0,0,0.85));
+      padding: 20px 12px 12px;
+      opacity: 0; transition: opacity 0.3s; pointer-events: none;
+    }
+    .video-controls.show { opacity: 1; pointer-events: auto; }
+
+    .controls-row { display: flex; align-items: center; gap: 10px; }
+
+    .ctrl-btn {
+      background: none; border: none; color: #fff;
+      font-size: 16px; cursor: pointer; padding: 6px;
+      display: flex; align-items: center; justify-content: center;
+      transition: transform 0.15s;
+    }
+    .ctrl-btn:hover { transform: scale(1.1); }
+
+    .progress-wrap {
+      flex: 1; height: 4px; background: rgba(255,255,255,0.3);
+      border-radius: 2px; cursor: pointer; position: relative;
+      transition: height 0.15s ease, background 0.15s ease;
+    }
+    .progress-wrap:hover {
+      height: 6px;
+      background: rgba(255,255,255,0.6);
+    }
+    .progress-bar { height: 100%; background: #e00; border-radius: 2px; width: 0%; pointer-events: none; }
+
+    .hover-indicator {
+      position: absolute; top: 0; width: 1px; height: 100%;
+      background: rgba(255,255,255,0.95);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+    .hover-indicator.show { opacity: 1; }
+
+    .preview-tooltip {
+      position: absolute; top: -140px; left: 0;
+      transform: translateX(-50%);
+      width: auto; min-width: 170px;
+      padding: 8px;
+      background: rgba(20,20,20,0.95);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 8px;
+      box-shadow: 0 12px 28px rgba(0,0,0,0.4);
+      color: #fff;
+      text-align: center;
+      pointer-events: none;
+      opacity: 0; visibility: hidden;
+      transition: opacity 0.15s ease, visibility 0.15s ease;
+      z-index: 5;
+      box-sizing: border-box;
+    }
+    .preview-tooltip.show { opacity: 1; visibility: visible; }
+    .preview-tooltip video {
+      width: 100%; max-width: 160px; height: 90px; border-radius: 6px;
+      background: #000; display: block; object-fit: cover;
+      margin: 0 auto;
+    }
+    .preview-tooltip .preview-time {
+      margin-top: 6px; font-size: 12px; color: #fff;
+    }
+
+    .time-display { color: #fff; font-size: 13px; font-family: monospace; white-space: nowrap; }
+
+    .volume-wrap { display: flex; align-items: center; gap: 6px; }
+    .volume-slider { width: 0; opacity: 0; transition: all 0.2s; cursor: pointer; accent-color: #fff; }
+    .volume-wrap:hover .volume-slider { width: 60px; opacity: 1; }
+
+    .speed-sel {
+      background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.3);
+      color: #fff; font-size: 12px; padding: 3px 6px; border-radius: 4px; cursor: pointer;
+    }
+
+    .close-modal {
+      position: absolute; top: 12px; right: 12px;
+      background: rgba(0,0,0,0.6); border: 2px solid rgba(255,255,255,0.5);
+      color: #fff; font-size: 20px; cursor: pointer;
+      width: 38px; height: 38px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1001; transition: all 0.2s;
+    }
+    .close-modal:hover { background: rgba(255,255,255,0.15); border-color: #fff; }
+    .close-modal.hide { opacity: 0; pointer-events: none; }
+
+    footer {
+      margin-top: 3rem; padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      font-size: 13px; color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>Videocast přednášek a cvičení (BPC-LOS)</h1>
+    <p>Ing. Petr Petyovský, Ph.D. · <a href="https://www.vut.cz" target="_blank">VUT v Brně</a> · <a href="BPC-ALD.html">Přejít na BPC-ALD →</a></p>
+    <button class="theme-toggle" id="themeToggle" title="Přepnout tmavý/světlý režim">
+      <span id="themeIcon">🌙</span>
+    </button>
+  </header>
+
+  <div class="filters">
+    <button class="filter-btn active" onclick="setFilter('vse',this)">Vše</button>
+    <button class="filter-btn" onclick="setFilter('2020',this)">Semestr 2020</button>
+    <button class="filter-btn" onclick="setFilter('2021',this)">Semestr 2021</button>
+    <button class="filter-btn" onclick="setFilter('prednaska',this)">Jen přednášky</button>
+    <button class="filter-btn" onclick="setFilter('cviceni',this)">Jen cvičení</button>
+  </div>
+
+  <div id="obsah"></div>
+
+  <footer>
+    Web vytvořil: Jakub Sláma
+  </footer>
+
+</div>
+
+<div class="video-modal" id="videoModal">
+  <div class="video-container" id="videoContainer">
+    <button class="close-modal" id="closeModal">&times;</button>
+    <video class="video-player" id="videoPlayer" preload="metadata"></video>
+
+    <div class="video-controls" id="videoControls">
+      <div class="controls-row">
+        <button class="ctrl-btn" id="playBtn">&#9654;</button>
+
+        <div class="progress-wrap" id="progressWrap">
+          <div class="hover-indicator" id="hoverIndicator"></div>
+          <div class="progress-bar" id="progressBar"></div>
+          <div class="preview-tooltip" id="previewTooltip">
+            <video id="previewPlayer" muted preload="metadata" playsinline></video>
+            <div class="preview-time" id="previewTime">0:00</div>
+          </div>
+        </div>
+
+        <div class="time-display" id="timeDisplay">0:00 / 0:00</div>
+
+        <div class="volume-wrap">
+          <button class="ctrl-btn" id="volumeBtn">&#128266;</button>
+          <input type="range" class="volume-slider" id="volumeSlider" min="0" max="1" step="0.05" value="1">
+        </div>
+
+        <select class="speed-sel" id="speedSel">
+          <option value="2">2×</option>
+          <option value="1.75">1.75×</option>
+          <option value="1.5">1.5×</option>
+          <option value="1.25">1.25×</option>
+          <option value="1" selected>1×</option>
+          <option value="0.75">0.75×</option>
+          <option value="0.5">0.5×</option>
+          <option value="0.25">0.25×</option>
+        </select>
+
+        <button class="ctrl-btn" id="fullscreenBtn">&#9974;</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════════════
+   DATA LAYER — BPC-LOS (38 videí)
+   ════════════════════════════════════════════════════════════════ */
+const videa = [
+  { predmet:'bpc-los', semestr:2020, ep:1,  typ:'prednaska', nazev:'Přednáška č.1', delka:'01:34:20', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2020/bpc-los_2020_prednaska_01_videocast_h264.mp4', temata:'Matematická logika, booleova algebra, pravdivostní tabulka, UDNF, UKNF, minimalizace log. funkcí' },
+  { predmet:'bpc-los', semestr:2020, ep:2,  typ:'cviceni',   nazev:'Cvičení č.1',   delka:'02:21:35', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2020/bpc-los_2020_cviceni_01_videocast_h264.mp4', temata:'Minimalizace kombinačních obvodů, Booleova algebra, Karnaughova mapa' },
+  { predmet:'bpc-los', semestr:2020, ep:3,  typ:'prednaska', nazev:'Přednáška č.2', delka:'01:55:36', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2020/bpc-los_2020_prednaska_02_videocast_h264.mp4', temata:'Karnaughovy mapy pro více proměnných, přechodné děje, číslicové sčítačky' },
+  { predmet:'bpc-los', semestr:2020, ep:4,  typ:'cviceni',   nazev:'Cvičení č.2',   delka:'02:27:50', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2020/bpc-los_2020_cviceni_02_videocast_h264.mp4', temata:'Výpočet hazardu pomocí mapy a bool algebry, Stavební prvky kombinačních obvodů' },
+  { predmet:'bpc-los', semestr:2020, ep:5,  typ:'prednaska', nazev:'Přednáška č.3', delka:'01:38:25', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2020/bpc-los_2020_prednaska_03_videocast_h264.mp4', temata:'Programovatelné logické obvody, úvod do jazyka VHDL, ENTITY, PORT, ARCHITECTURE' },
+  { predmet:'bpc-los', semestr:2020, ep:6,  typ:'cviceni',   nazev:'Cvičení č.3',   delka:'01:58:15', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2020/bpc-los_2020_cviceni_03_videocast_h264.mp4', temata:'Základní logická hradla, Booleova algebra, De Morganovy zákony, edaplayground' },
+  { predmet:'bpc-los', semestr:2020, ep:7,  typ:'prednaska', nazev:'Přednáška č.4', delka:'01:41:26', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2020/bpc-los_2020_prednaska_04_videocast_h264.mp4', temata:'Datové typy jazyka VHDL, operátory jazyka VHDL, souběžné příkazy, podmíněné přiřazení' },
+  { predmet:'bpc-los', semestr:2020, ep:8,  typ:'cviceni',   nazev:'Cvičení č.4',   delka:'01:21:32', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2020/bpc-los_2020_cviceni_04_videocast_h264.mp4', temata:'Návrh základních kombinačních obvodů: dekodér, enkodér, multiplexor, demultiplexor' },
+  { predmet:'bpc-los', semestr:2020, ep:9,  typ:'prednaska', nazev:'Přednáška č.5', delka:'01:42:04', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2020/bpc-los_2020_prednaska_05_videocast_h264.mp4', temata:'Datové objekty jazyka VHDL, atributy, konverze typů, datový typ záznam, výběrové přiřazení' },
+  { predmet:'bpc-los', semestr:2020, ep:10, typ:'cviceni',   nazev:'Cvičení č.5',   delka:'01:17:18', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2020/bpc-los_2020_cviceni_05_videocast_h264.mp4', temata:'Návrh dekodéru BCD kódu na 7-segmentový displej, kombinační logika' },
+  { predmet:'bpc-los', semestr:2020, ep:11, typ:'prednaska', nazev:'Přednáška č.6', delka:'01:45:24', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2020/bpc-los_2020_prednaska_06_videocast_h264.mp4', temata:'Strukturální popis ve VHDL (COMPONENT, GENERIC, PORT MAP), cyklus FOR' },
+  { predmet:'bpc-los', semestr:2020, ep:12, typ:'cviceni',   nazev:'Cvičení č.6',   delka:'01:25:33', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2020/bpc-los_2020_cviceni_06_videocast_h264.mp4', temata:'Návrh číslicového komparátoru, návrh základních aritmetických operací' },
+  { predmet:'bpc-los', semestr:2020, ep:13, typ:'prednaska', nazev:'Přednáška č.7', delka:'01:44:28', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2020/bpc-los_2020_prednaska_07_videocast_h264.mp4', temata:'Vnitřní schéma log. obvodů, sekvenční logické obvody, asynchronní a synchronní klopné obvody' },
+  { predmet:'bpc-los', semestr:2020, ep:14, typ:'cviceni',   nazev:'Cvičení č.7',   delka:'02:31:42', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2020/bpc-los_2020_cviceni_07_videocast_h264.mp4', temata:'Úvod do klopných obvodů - odvození funkce RS, hladinových KO, hranových KO, binární čítač' },
+  { predmet:'bpc-los', semestr:2020, ep:15, typ:'prednaska', nazev:'Přednáška č.8', delka:'01:54:39', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2020/bpc-los_2020_prednaska_08_videocast_h264.mp4', temata:'Metastabilita, popis sekvenčních obvodů ve VHDL (PROCESS, IF-ELSIF-ELSE, CASE-WHEN)' },
+  { predmet:'bpc-los', semestr:2020, ep:16, typ:'cviceni',   nazev:'Cvičení č.8',   delka:'02:38:27', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2020/bpc-los_2020_cviceni_08_videocast_h264.mp4', temata:'Binární čítač s neúplným cyklem, Mooreův a Mealyho konečný stavový automat' },
+  { predmet:'bpc-los', semestr:2020, ep:17, typ:'prednaska', nazev:'Přednáška č.9', delka:'01:51:10', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2020/bpc-los_2020_prednaska_09_videocast_h264.mp4', temata:'Posuvné registry, LFSR, binární čítače, implementace sekvenčních obvodů ve VHDL' },
+  { predmet:'bpc-los', semestr:2020, ep:18, typ:'cviceni',   nazev:'Cvičení č.9',   delka:'01:45:45', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2020/bpc-los_2020_cviceni_09_videocast_h264.mp4', temata:'Sekvenční obvody, Johnsonův čítač, realizace hry elektronická kostka, LFSR' },
+  { predmet:'bpc-los', semestr:2020, ep:19, typ:'prednaska', nazev:'Přednáška č.10',delka:'01:54:01', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2020/bpc-los_2020_prednaska_10_videocast_h264.mp4', temata:'Čítače, vstup-výstupní buňka, třístavové signály, sběrnice, simulace ve VHDL' },
+  { predmet:'bpc-los', semestr:2020, ep:20, typ:'cviceni',   nazev:'Cvičení č.10',  delka:'01:19:36', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2020/bpc-los_2020_cviceni_10_videocast_h264.mp4', temata:'Sekvenční logika – návrh asynchronních a synchronních binárních čítačů' },
+  { predmet:'bpc-los', semestr:2020, ep:21, typ:'prednaska', nazev:'Přednáška č.11',delka:'01:51:26', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2020/bpc-los_2020_prednaska_11_videocast_h264.mp4', temata:'Konečné stavové automaty - teorie, Mooreho, Mealyho a autonomní KSA, popisy ve VHDL' },
+  { predmet:'bpc-los', semestr:2020, ep:22, typ:'cviceni',   nazev:'Cvičení č.11',  delka:'01:20:46', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2020/bpc-los_2020_cviceni_11_videocast_h264.mp4', temata:'Návrh n-bitového pulsně šířkového modulátoru (PWM), návrh sekvenčního obvodu' },
+  { predmet:'bpc-los', semestr:2020, ep:23, typ:'prednaska', nazev:'Přednáška č.12',delka:'01:45:00', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2020/bpc-los_2020_prednaska_12_videocast_h264.mp4', temata:'Konečné stavové automaty - praktické ukázky, syntéza a optimalizace přechodů' },
+  { predmet:'bpc-los', semestr:2020, ep:24, typ:'cviceni',   nazev:'Cvičení č.12',  delka:'01:50:00', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2020/bpc-los_2020_cviceni_12_videocast_h264.mp4', temata:'Realizace stavových automatů ve VHDL, testbench simulace, synchronní logické sítě' },
+  { predmet:'bpc-los', semestr:2020, ep:25, typ:'prednaska', nazev:'Přednáška č.13',delka:'01:55:07', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2020/bpc-los_2020_prednaska_13_videocast_h264.mp4', temata:'Konečné stavové automaty - dokončení, kódování vnitřních stavů, informace o zkoušce' },
+  { predmet:'bpc-los', semestr:2020, ep:26, typ:'cviceni',   nazev:'Cvičení č.13',  delka:'02:19:15', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2020/bpc-los_2020_cviceni_13_videocast_h264.mp4', temata:'Mealyho KSA - detektor bitového vzoru, návrh pomocí diskrétních součástek a VHDL' },
+  { predmet:'bpc-los', semestr:2021, ep:1,  typ:'prednaska', nazev:'Přednáška č.1', delka:'01:39:00', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2021/bpc-los_2021_prednaska_01_videocast_h264.mp4', temata:'Matematická logika, booleova algebra, pravdivostní tabulka, UDNF, UKNF, minimalizace log. funkcí' },
+  { predmet:'bpc-los', semestr:2021, ep:2,  typ:'cviceni',   nazev:'Cvičení č.1',   delka:'01:45:00', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2021/bpc-los_2021_cviceni_01_videocast_h264.mp4', temata:'Úvod do cvičení, Booleova algebra, návrh základních hradel AND, OR, NOT' },
+  { predmet:'bpc-los', semestr:2021, ep:3,  typ:'prednaska', nazev:'Přednáška č.2', delka:'01:37:27', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2021/bpc-los_2021_prednaska_02_videocast_h264.mp4', temata:'Karnaughovy mapy pro více proměnných, přechodné děje, číslicové sčítačky, knihovna obvodů' },
+  { predmet:'bpc-los', semestr:2021, ep:4,  typ:'cviceni',   nazev:'Cvičení č.2',   delka:'01:52:00', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2021/bpc-los_2021_cviceni_02_videocast_h264.mp4', temata:'Minimalizace funkcí pomocí K-mapy, analýza statických a dynamických hazardů v obvodu' },
+  { predmet:'bpc-los', semestr:2021, ep:5,  typ:'prednaska', nazev:'Přednáška č.3', delka:'01:48:05', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2021/bpc-los_2021_prednaska_03_videocast_h264.mp4', temata:'Metoda Quine-McCluskey, programovatelné logické obvody, úvod do jazyka VHDL' },
+  { predmet:'bpc-los', semestr:2021, ep:6,  typ:'cviceni',   nazev:'Cvičení č.3',   delka:'01:30:00', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2021/bpc-los_2021_cviceni_03_videocast_h264.mp4', temata:'Zápis struktury entity a architektury ve VHDL, simulace jednoduchých kombinačních hradel' },
+  { predmet:'bpc-los', semestr:2021, ep:7,  typ:'prednaska', nazev:'Přednáška č.4', delka:'01:47:49', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2021/bpc-los_2021_prednaska_04_videocast_h264.mp4', temata:'Datové typy jazyka VHDL, operátory, souběžné příkazy, podmíněné přiřazení' },
+  { predmet:'bpc-los', semestr:2021, ep:8,  typ:'cviceni',   nazev:'Cvičení č.4',   delka:'01:40:00', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2021/bpc-los_2021_cviceni_04_videocast_h264.mp4', temata:'Podmíněné přiřazení signálu, modelování multiplexorů a prioritních kodérů ve VHDL' },
+  { predmet:'bpc-los', semestr:2021, ep:9,  typ:'prednaska', nazev:'Přednáška č.5', delka:'01:43:55', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2021/bpc-los_2021_prednaska_05_videocast_h264.mp4', temata:'Datové objekty, atributy, balík numeric_std, datový typ záznam, výběrové přiřazení' },
+  { predmet:'bpc-los', semestr:2021, ep:10, typ:'cviceni',   nazev:'Cvičení č.5',   delka:'01:35:00', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2021/bpc-los_2021_cviceni_05_videocast_h264.mp4', temata:'Konverze typů mezi std_logic_vector a unsigned/signed, aritmetické operace' },
+  { predmet:'bpc-los', semestr:2021, ep:11, typ:'prednaska', nazev:'Přednáška č.6', delka:'01:47:12', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2021/bpc-los_2021_prednaska_06_videocast_h264.mp4', temata:'Strukturální popis ve VHDL, rozdělení do více souborů, cyklus FOR, zkušební jednotky' },
+  { predmet:'bpc-los', semestr:2021, ep:12, typ:'cviceni',   nazev:'Cvičení č.6',   delka:'01:42:00', url:'https://www.uamt.fekt.vut.cz/~petyovsky/podcast/bpc-los/videos/2021/bpc-los_2021_cviceni_06_videocast_h264.mp4', temata:'Komponenty, generické parametry GENERIC a propojení bloků pomocí PORT MAP, strukturovaný návrh' }
+];
+
+/* ════════════════════════════════════════════════════════════════
+   FILTER & RENDER
+   ════════════════════════════════════════════════════════════════ */
+
+let aktivniFiltr = 'vse';
+
+function setFilter(typ, btn) {
+  aktivniFiltr = typ;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  vykreslit();
+}
+
+function vykreslit() {
+  let f = videa;
+  
+  if (aktivniFiltr === '2020') f = videa.filter(v => v.semestr === 2020);
+  else if (aktivniFiltr === '2021') f = videa.filter(v => v.semestr === 2021);
+  else if (aktivniFiltr === '2022') f = videa.filter(v => v.semestr === 2022);
+  else if (aktivniFiltr === 'prednaska') f = videa.filter(v => v.typ === 'prednaska');
+  else if (aktivniFiltr === 'cviceni')   f = videa.filter(v => v.typ === 'cviceni');
+
+  const obsah = document.getElementById('obsah');
+  obsah.innerHTML = '';
+  if (!f.length) {
+    obsah.innerHTML = '<p style="color:var(--text-muted);font-size:14px;">Žádná videa k zobrazení.</p>';
+    return;
+  }
+
+  // Definice struktury sekcí
+  [
+    { label:'BPC-LOS · Přednášky 2020', fn: v => v.semestr===2020 && v.typ==='prednaska' },
+    { label:'BPC-LOS · Cvičení 2020', fn: v => v.semestr===2020 && v.typ==='cviceni' },
+    { label:'BPC-LOS · Přednášky 2021', fn: v => v.semestr===2021 && v.typ==='prednaska' },
+    { label:'BPC-LOS · Cvičení 2021', fn: v => v.semestr===2021 && v.typ==='cviceni' }
+  ].forEach(s => {
+    const seznam = f.filter(s.fn);
+    if (!seznam.length) return;
+
+    const lbl = document.createElement('div');
+    lbl.className = 'season-label';
+    lbl.textContent = s.label;
+    obsah.appendChild(lbl);
+
+    const grid = document.createElement('div');
+    grid.className = 'grid';
+
+    seznam.forEach(v => {
+      const karta = document.createElement('div');
+      karta.className = 'card';
+      karta.innerHTML = `
+        <div class="card-top">
+          <span class="badge ${v.typ==='prednaska'?'badge-lecture':'badge-exercise'}">${v.typ==='prednaska'?'Přednáška':'Cvičení'}</span>
+          <span class="ep-num">${v.predmet.toUpperCase()} (${v.semestr})</span>
+        </div>
+        <div class="card-title">${v.nazev}</div>
+        <div class="card-meta">⏱ ${v.delka}</div>
+        <div class="card-topics">${v.temata}</div>
+        <button class="watch-btn" data-url="${v.url}" data-title="${v.nazev} (${v.predmet.toUpperCase()})">Přehrát video</button>
+      `;
+      grid.appendChild(karta);
+    });
+    obsah.appendChild(grid);
+  });
+
+  document.querySelectorAll('.watch-btn').forEach(btn => {
+    btn.addEventListener('click', () => playVideo(btn.dataset.url, btn.dataset.title));
+  });
+}
+
+vykreslit();
+
+/* ════════════════════════════════════════════════════════════════
+   VIDEO PLAYER CONTROLS
+   ════════════════════════════════════════════════════════════════ */
+const modal          = document.getElementById('videoModal');
+const player         = document.getElementById('videoPlayer');
+const playBtn        = document.getElementById('playBtn');
+const progWrap       = document.getElementById('progressWrap');
+const progBar        = document.getElementById('progressBar');
+const hoverIndicator = document.getElementById('hoverIndicator');
+const previewTooltip = document.getElementById('previewTooltip');
+const previewPlayer  = document.getElementById('previewPlayer');
+const previewTime    = document.getElementById('previewTime');
+const timeDisp       = document.getElementById('timeDisplay');
+const volBtn         = document.getElementById('volumeBtn');
+const volSlider      = document.getElementById('volumeSlider');
+const speedSel       = document.getElementById('speedSel');
+const fsBtn          = document.getElementById('fullscreenBtn');
+const closeBtn       = document.getElementById('closeModal');
+const controls       = document.getElementById('videoControls');
+
+function playVideo(url, title) {
+  player.src = url;
+  player.load();
+  modal.classList.add('show');
+  document.title = title + ' — Videocast';
+  speedSel.value = '1';
+  player.playbackRate = 1;
+  player.play();
+}
+
+function closeVideo() {
+  player.pause();
+  player.src = '';
+  modal.classList.remove('show');
+  if (document.fullscreenElement) document.exitFullscreen();
+  document.title = 'BPC-LOS — Videocast přednášek a cvičení';
+}
+
+function togglePlay() {
+  if (player.paused) { player.play(); playBtn.innerHTML = '&#10074;&#10074;'; }
+  else { player.pause(); playBtn.innerHTML = '&#9654;'; }
+}
+
+function fmt(s) {
+  if (isNaN(s)) return '0:00';
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = Math.floor(s % 60);
+  if (h > 0) {
+    return h + ':' + (m < 10 ? '0' : '') + m + ':' + (sec < 10 ? '0' : '') + sec;
+  }
+  return m + ':' + (sec < 10 ? '0' : '') + sec;
+}
+
+let previewSeeking = false;
+let previewPendingTime = null;
+
+function seekPreview(time) {
+  if (!previewPlayer.src || previewPlayer.src !== player.src) {
+    previewPlayer.src = player.src;
+    previewPlayer.load();
+  }
+  if (isNaN(previewPlayer.duration) || previewPlayer.readyState < 1) {
+    previewPlayer.addEventListener('loadedmetadata', () => {
+      previewPlayer.currentTime = time;
+    }, { once: true });
+    return;
+  }
+  if (previewSeeking) {
+    previewPendingTime = time;
+    return;
+  }
+  previewSeeking = true;
+  previewPlayer.currentTime = time;
+}
+
+previewPlayer.addEventListener('seeked', () => {
+  previewSeeking = false;
+  if (previewPendingTime !== null) {
+    const nextTime = previewPendingTime;
+    previewPendingTime = null;
+    seekPreview(nextTime);
+  }
+});
+
+function updatePreviewTooltip(event) {
+  const rect = progWrap.getBoundingClientRect();
+  const x = Math.max(0, Math.min(event.clientX - rect.left, rect.width));
+  const pct = rect.width ? x / rect.width : 0;
+  const time = player.duration ? player.duration * pct : 0;
+
+  previewTime.textContent = fmt(time);
+  previewTooltip.style.left = `${x}px`;
+  previewTooltip.classList.add('show');
+
+  hoverIndicator.style.left = `${x}px`;
+  hoverIndicator.classList.add('show');
+
+  seekPreview(time);
+}
+
+progWrap.addEventListener('mousemove', updatePreviewTooltip);
+progWrap.addEventListener('mouseleave', () => {
+  previewTooltip.classList.remove('show');
+  hoverIndicator.classList.remove('show');
+});
+
+player.addEventListener('timeupdate', () => {
+  const pct = player.duration ? (player.currentTime / player.duration) * 100 : 0;
+  progBar.style.width = pct + '%';
+  timeDisp.textContent = fmt(player.currentTime) + ' / ' + fmt(player.duration);
+});
+player.addEventListener('play',  () => { playBtn.innerHTML = '&#10074;&#10074;'; });
+player.addEventListener('pause', () => { playBtn.innerHTML = '&#9654;'; modal.style.cursor = ''; clearTimeout(hideTimer); });
+player.addEventListener('ended', () => { playBtn.innerHTML = '&#9654;'; controls.classList.add('show'); closeBtn.classList.remove('hide'); });
+
+progWrap.addEventListener('click', e => {
+  const r = progWrap.getBoundingClientRect();
+  player.currentTime = ((e.clientX - r.left) / r.width) * player.duration;
+});
+
+volBtn.addEventListener('click', () => {
+  player.muted = !player.muted;
+  volBtn.innerHTML = player.muted ? '&#128263;' : '&#128266;';
+  volSlider.value = player.muted ? 0 : player.volume;
+});
+volSlider.addEventListener('input', () => {
+  player.volume = volSlider.value;
+  player.muted = volSlider.value == 0;
+  volBtn.innerHTML = player.muted ? '&#128263;' : '&#128266;';
+});
+
+speedSel.addEventListener('change', () => { player.playbackRate = parseFloat(speedSel.value); });
+
+fsBtn.addEventListener('click', () => {
+  if (!document.fullscreenElement) modal.requestFullscreen();
+  else document.exitFullscreen();
+});
+
+playBtn.addEventListener('click', togglePlay);
+player.addEventListener('click', togglePlay);
+closeBtn.addEventListener('click', closeVideo);
+modal.addEventListener('click', e => { if (e.target === modal) closeVideo(); });
+
+document.addEventListener('keydown', e => {
+  if (!modal.classList.contains('show')) return;
+  if (e.key === 'Escape')                        closeVideo();
+  if (e.key === ' ')                             { e.preventDefault(); togglePlay(); }
+  if (e.key === 'f')                             { e.preventDefault(); fsBtn.click(); }
+  if (e.key === 'ArrowLeft'  || e.key.toLowerCase() === 'a') {
+    e.preventDefault();
+    player.currentTime = Math.max(0, player.currentTime - 5);
+  }
+  if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') {
+    e.preventDefault();
+    player.currentTime = Math.min(player.duration, player.currentTime + 5);
+  }
+});
+
+let hideTimer;
+function showControls() {
+  controls.classList.add('show');
+  closeBtn.classList.remove('hide');
+  modal.style.cursor = '';
+  clearTimeout(hideTimer);
+  if (!player.paused) {
+    hideTimer = setTimeout(() => {
+      controls.classList.remove('show');
+      closeBtn.classList.add('hide');
+      modal.style.cursor = 'none';
+    }, 5000);
+  }
+}
+
+modal.addEventListener('mousemove', showControls);
+modal.addEventListener('mouseleave', () => {
+  modal.style.cursor = '';
+  if (!player.paused) hideTimer = setTimeout(() => {
+    controls.classList.remove('show');
+    closeBtn.classList.add('hide');
+    modal.style.cursor = 'none';
+  }, 800);
+});
+
+/* ── THEME SYSTEM ── */
+function applyTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  document.getElementById('themeIcon').textContent = t==='dark' ? '☀️' : '🌙';
+}
+
+function toggleTheme() {
+  const next = document.documentElement.getAttribute('data-theme')==='dark' ? 'light' : 'dark';
+  applyTheme(next);
+  try { localStorage.setItem('theme', next); } catch(e) {}
+}
+
+document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+
+(function(){
+  let saved;
+  try { saved = localStorage.getItem('theme'); } catch(e) {}
+  let theme = saved === 'dark' || saved === 'light' ? saved : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  applyTheme(theme);
+})();
+</script>
+</body>
+</html>
