@@ -20,8 +20,8 @@ Tento projekt je jednoduchá statická html stránka, která má sloužit pro le
 | Soubor | Popis |
 |---|---|
 | `index.html` | rozcestník mezi předměty |
-| `ald.html` | záznamy BPC-ALD |
-| `los.html` | záznamy BPC-LOS |
+| `BPC-ALD.html` | záznamy BPC-ALD |
+| `BPC-LOS.html` | záznamy BPC-LOS |
 
 Videa jsou uložená v poli `videa` na začátku `<script>` v souboru daného předmětu. Nové video se přidá jedním řádkem ve tvaru:
 ```js
