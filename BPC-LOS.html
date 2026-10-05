@@ -81,7 +81,14 @@
     }
     .theme-toggle:hover { background: var(--border-hover); transform: scale(1.05); }
 
-    .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 2rem; }
+    .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 1rem; }
+    .search-wrap { margin-bottom: 2rem; }
+    .search-input {
+      width: 100%; padding: 10px 12px; font: inherit; font-size: 14px;
+      color: var(--text-primary); background: var(--surface);
+      border: 1px solid var(--border); border-radius: var(--radius-md);
+    }
+    .search-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 
     .filter-btn {
       font-size: 13px; padding: 5px 16px; border-radius: 20px;
@@ -263,10 +270,12 @@
 
   <div class="filters">
     <button class="filter-btn active" onclick="setFilter('vse',this)">Vše</button>
-    <button class="filter-btn" onclick="setFilter('2020',this)">Semestr 2020</button>
-    <button class="filter-btn" onclick="setFilter('2021',this)">Semestr 2021</button>
+    <span id="yearFilters" style="display:contents"></span>
     <button class="filter-btn" onclick="setFilter('prednaska',this)">Jen přednášky</button>
     <button class="filter-btn" onclick="setFilter('cviceni',this)">Jen cvičení</button>
+  </div>
+  <div class="search-wrap">
+    <input class="search-input" id="videoSearch" type="search" placeholder="Hledat ve všech letech..." aria-label="Hledat videa">
   </div>
 
   <div id="obsah"></div>
@@ -369,6 +378,21 @@ const videa = [
    ════════════════════════════════════════════════════════════════ */
 
 let aktivniFiltr = 'vse';
+let hledanyText = '';
+
+const yearFilters = document.getElementById('yearFilters');
+[...new Set(videa.map(video => video.semestr))].sort((a, b) => b - a).forEach(year => {
+  const button = document.createElement('button');
+  button.className = 'filter-btn';
+  button.textContent = `Semestr ${year}`;
+  button.addEventListener('click', () => setFilter(String(year), button));
+  yearFilters.appendChild(button);
+});
+
+document.getElementById('videoSearch').addEventListener('input', event => {
+  hledanyText = event.target.value.trim().toLocaleLowerCase('cs-CZ').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  vykreslit();
+});
 
 function setFilter(typ, btn) {
   aktivniFiltr = typ;
@@ -380,11 +404,18 @@ function setFilter(typ, btn) {
 function vykreslit() {
   let f = videa;
   
-  if (aktivniFiltr === '2020') f = videa.filter(v => v.semestr === 2020);
-  else if (aktivniFiltr === '2021') f = videa.filter(v => v.semestr === 2021);
-  else if (aktivniFiltr === '2022') f = videa.filter(v => v.semestr === 2022);
+  if (/^\\d{4}$/.test(aktivniFiltr)) f = f.filter(v => v.semestr === Number(aktivniFiltr));
   else if (aktivniFiltr === 'prednaska') f = videa.filter(v => v.typ === 'prednaska');
   else if (aktivniFiltr === 'cviceni')   f = videa.filter(v => v.typ === 'cviceni');
+
+  if (hledanyText) {
+    f = f.filter(video => {
+      const text = [video.semestr, video.predmet, video.nazev, video.typ, video.temata]
+        .join(' ').toLocaleLowerCase('cs-CZ').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      return text.includes(hledanyText);
+    });
+  }
+  f = [...f].sort((a, b) => b.semestr - a.semestr || a.ep - b.ep);
 
   const obsah = document.getElementById('obsah');
   obsah.innerHTML = '';
@@ -393,19 +424,14 @@ function vykreslit() {
     return;
   }
 
-  // Definice struktury sekcí
-  [
-    { label:'BPC-LOS · Přednášky 2020', fn: v => v.semestr===2020 && v.typ==='prednaska' },
-    { label:'BPC-LOS · Cvičení 2020', fn: v => v.semestr===2020 && v.typ==='cviceni' },
-    { label:'BPC-LOS · Přednášky 2021', fn: v => v.semestr===2021 && v.typ==='prednaska' },
-    { label:'BPC-LOS · Cvičení 2021', fn: v => v.semestr===2021 && v.typ==='cviceni' }
-  ].forEach(s => {
-    const seznam = f.filter(s.fn);
+  const roky = [...new Set(f.map(video => video.semestr))].sort((a, b) => b - a);
+  roky.flatMap(year => ['prednaska', 'cviceni'].map(type => ({ year, type }))).forEach(section => {
+    const seznam = f.filter(video => video.semestr === section.year && video.typ === section.type);
     if (!seznam.length) return;
 
     const lbl = document.createElement('div');
     lbl.className = 'season-label';
-    lbl.textContent = s.label;
+    lbl.textContent = `${videa[0].predmet.toUpperCase()} · ${section.type === 'prednaska' ? 'Přednášky' : 'Cvičení'} ${section.year}`;
     obsah.appendChild(lbl);
 
     const grid = document.createElement('div');
