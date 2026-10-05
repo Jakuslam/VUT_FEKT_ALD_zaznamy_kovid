@@ -404,7 +404,7 @@ function setFilter(typ, btn) {
 function vykreslit() {
   let f = videa;
   
-  if (/^\\d{4}$/.test(aktivniFiltr)) f = f.filter(v => v.semestr === Number(aktivniFiltr));
+  if (/^\d{4}$/.test(aktivniFiltr)) f = f.filter(v => v.semestr === Number(aktivniFiltr));
   else if (aktivniFiltr === 'prednaska') f = videa.filter(v => v.typ === 'prednaska');
   else if (aktivniFiltr === 'cviceni')   f = videa.filter(v => v.typ === 'cviceni');
 
